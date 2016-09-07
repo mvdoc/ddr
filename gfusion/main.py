@@ -53,6 +53,20 @@ def _initialize_values(D, S):
     pass
 
 
+def _compute_symmetric_nonnegative_factorization(M):
+    """
+
+    Parameters
+    ----------
+    M : (n, n) symmetric matrix
+
+    Returns
+    -------
+    S : (n, n) non negative symmetric 
+
+    """
+    pass
+
 def _initialize_latent_matrices(D, S, omega, pi):
     """Performs Symmetric Nonnegative Matrix Factorization to initialize
     the latent matrices U and V
