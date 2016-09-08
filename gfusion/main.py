@@ -7,6 +7,7 @@ a unified computational framework for integrating multiple aspects of
 drug similarity and disease similarity." AMIA Annu Symp Proc. 2014.
 """
 
+import numpy as np
 
 def densify(D, S, R):
     """Densify a matrix R
@@ -30,7 +31,7 @@ def densify(D, S, R):
     pass
 
 
-def _initialize_values(D, S):
+def _initialize_values(D, S, lambda1 = 1, lambda2 = 1, delta1 = 1, delta2 = 1):
     """Initialize values
 
     Arguments
@@ -50,22 +51,65 @@ def _initialize_values(D, S):
     omega : np.ndarray (n_similarities, 1)
     pi : np.ndarray (m_similarities, 1)
     """
-    pass
+    Kd = D.shape(0)
+    omega = np.ones((Kd,1))/Kd
+
+    Ks = S.shape(0)
+    pi = np.ones((Ks,1))/Ks
+
+    return {'lambda1':lambda1, 'lambda2':lambda2, 'delta1':delta1, 'delta2':delta2, 'omega':omega, 'pi':pi}
 
 
-def _compute_symmetric_nonnegative_factorization(M):
+def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sigma = 0.1, beta = 0.1):
     """
 
+    https://github.com/andybaoxv/symnmf
+    Da Kuang, Chris Ding, Haesun Park,
+    Symmetric Nonnegative Matrix Factorization for Graph Clustering,
+    The 12th SIAM International Conference on Data Mining (SDM '12), pp. 106--117.
     Parameters
     ----------
-    M : (n, n) symmetric matrix
+    X : (n, n) symmetric matrix
+    k : number of clusters
+    Hinit : (n, k) initialization of H
+    maxiter : max number of iterations
+    tol : tolerance parameter to determine convergence
+    sigma : acceptance parameter
+    beta : reduction factor to decrease step size of gradient search
 
     Returns
     -------
-    S : (n, n) non negative symmetric 
-
+    H : (n, n) non negative symmetric 
+    iter : number of iterations used
+    energy: f(H)
     """
-    pass
+    
+    #should implement check that X is symmetric (at least square)
+    #should implement checks for optional input
+
+    n = X.shape(0)
+
+    if Hinit.size < 1:
+        H = 2 * np.sqrt( np.mean(A) / k) * np.random.rand(n, k)
+    else
+        H = Hinit
+
+
+    projnorm_idx = np.zeros([n,k])
+    R = np.zeros([1,k])
+    p = np.zeros([1,k])
+    energy = np.square( np.linalg.norm(A - np.dot(H,H.T), 'fro') )
+    gradH = 4 * (np.dot(H, np.dot(H.T,H)) - np.dot(A,H))
+    initgrad = np.linalg.norm(gradH, 'fro')
+
+    for iter in xrange(1,maxiter):
+        gradH = 4*(np.dot(H,np.dot(H.T,H)) - np.dot(A,H))
+        projnorm_idx_prev = projnorm_idx
+        projnorm_idx = gradH<=eps | H>eps #
+        projnorm = np.linalg.norm(gradH(projnorm_idx)) #
+
+    return {'H':H, 'iter':iter, 'energy':energy}
+
 
 def _initialize_latent_matrices(D, S, omega, pi):
     """Performs Symmetric Nonnegative Matrix Factorization to initialize
