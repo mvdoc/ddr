@@ -59,6 +59,24 @@ def _initialize_values(D, S, lambda1 = 1, lambda2 = 1, delta1 = 1, delta2 = 1):
 
     return {'lambda1':lambda1, 'lambda2':lambda2, 'delta1':delta1, 'delta2':delta2, 'omega':omega, 'pi':pi}
 
+def _compute_hessian_blkdiag(temp, H, i, projnorm_idx):
+    """
+
+    Parameters
+    ----------
+    temp : (n, k)    H*H.T - A
+    H : (n, k)    hessian
+    i : index
+    projnorm_idx : 
+
+    Returns
+    -------
+    R : (1, k)
+    p : (1, n) 
+    """
+
+    return {'R':R, 'p':p}
+
 
 def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sigma = 0.1, beta = 0.1):
     """
@@ -94,7 +112,6 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
     else
         H = Hinit
 
-
     projnorm_idx = np.zeros([n,k])
     R = np.zeros([1,k])
     p = np.zeros([1,k])
@@ -102,11 +119,59 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
     gradH = 4 * (np.dot(H, np.dot(H.T,H)) - np.dot(A,H))
     initgrad = np.linalg.norm(gradH, 'fro')
 
-    for iter in xrange(1,maxiter):
+    eps = np.finfo(float).eps
+
+    for iter in xrange(1,maxiter+1):
         gradH = 4*(np.dot(H,np.dot(H.T,H)) - np.dot(A,H))
         projnorm_idx_prev = projnorm_idx
-        projnorm_idx = gradH<=eps | H>eps #
-        projnorm = np.linalg.norm(gradH(projnorm_idx)) #
+        projnorm_idx = np.logical_or(gradH <= eps, H>eps)
+        projnorm = np.linalg.norm(gradH[projnorm_idx])
+
+        if (projnorm < tol * initgrad):
+            break
+        
+        if iter%100 == 0: 
+            p = np.ones([1,k]) 
+
+        step = np.zeros([n,k]) 
+        hessian = np.ones([1,k]) 
+        temp = np.dot(H,H.T) - A 
+
+        for i = range(0,k): 
+            if np.any(element projnorm_idx_prev[:,i] != projnorm_idx[:,i]):
+                rpdict = _compute_hessian_blkdiag(temp, H, i, projnorm_idx)
+                R[i] = rpdict[R]
+                p[i] = rpdict[p]
+
+            if p[i] > 0:
+                step[:,i] = gradH[:,i]
+            else
+                step_temp = R{i}.T \ gradH[projnorm_idx[:, i], i] #
+                step_temp = R{i} \ step_temp #
+                step_part = np.zeros([n, 1])
+                step_part[projnorm_idx[:, i]] = step_temp #
+                step_part[step_part > -eps and H[:, i] <= eps] = 0 #
+                if sum(gradH[:, i] .* step_part) / np.linalg.norm[gradH[:, i]] / np.linalg.norm(step_part) <= eps #
+                    p[i] = 1
+                    step[:, i] = gradH[:, i]
+                else
+                    step[:, i] = step_part
+
+            alpha_newton = 1
+            Hn = max(H - alpha_newton * step, 0)
+            newobj = np.square(np.linalg.norm(A - np.dot(Hn, Hn.T), 'fro'))
+            if newobj - obj > sigma * np.mean(gradH * (Hn-H))
+                while True: #
+                    alpha_newton = alpha_newton * beta
+                    Hn = max(H - alpha_newton * step,0) #
+                    newobj = np.square(np.linalg.norm(A - np.dot(Hn,Hn.T)))
+                    if newobj - obj <= sigma * np.mean(gradH * (Hn-H)) #
+                        H = Hn
+                        obj = newobj
+                        break
+            else
+                H = Hn
+                obj = newobj
 
     return {'H':H, 'iter':iter, 'energy':energy}
 
