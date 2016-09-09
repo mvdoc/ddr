@@ -8,6 +8,7 @@ drug similarity and disease similarity." AMIA Annu Symp Proc. 2014.
 """
 
 import numpy as np
+from scipy.linalg import qr
 
 def densify(D, S, R):
     """Densify a matrix R
@@ -58,6 +59,28 @@ def _initialize_values(D, S, lambda1 = 1, lambda2 = 1, delta1 = 1, delta2 = 1):
     pi = np.ones((Ks,1))/Ks
 
     return {'lambda1':lambda1, 'lambda2':lambda2, 'delta1':delta1, 'delta2':delta2, 'omega':omega, 'pi':pi}
+
+def solve_minnonzero(A, b):
+    """
+    QR decomp to solve underdetermined linear system Ax=b as seen in matlab mldivide (aka \)
+    http://stackoverflow.com/questions/33614378/how-can-i-obtain-the-same-special-solutions-to-underdetermined-linear-systems
+
+    Parameters
+    ----------
+    A :
+    b : 
+
+    Returns
+    -------
+    x : solution to underdetermined linear system Ax = b
+    """
+    x1, res, rnk, s = np.linalg.lstsq(A, b)
+    if rnk == A.shape[1]:
+        return x1   # nothing more to do if A is full-rank
+    Q, R, P = qr(A.T, mode='full', pivoting=True)
+    Z = Q[:, rnk:].conj()
+    C = np.linalg.solve(Z[rnk:], -x1[rnk:])
+    return x1 + Z.dot(C)
 
 def _compute_hessian_blkdiag(temp, H, i, projnorm_idx):
     """
@@ -146,8 +169,8 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
             if p[i] > 0:
                 step[:,i] = gradH[:,i]
             else
-                step_temp = R{i}.T \ gradH[projnorm_idx[:, i], i] #
-                step_temp = R{i} \ step_temp #
+                step_temp = solve_minnonzero(R[i].T, gradH[projnorm_idx[:, i], i]) #R[i] issue
+                step_temp = solve_minnonzero(R[i], step_temp) #R[i] issue
                 step_part = np.zeros([n, 1])
                 step_part[projnorm_idx[:, i]] = step_temp #
                 step_part[step_part > -eps and H[:, i] <= eps] = 0 #
@@ -158,14 +181,16 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
                     step[:, i] = step_part
 
             alpha_newton = 1
-            Hn = max(H - alpha_newton * step, 0)
+            Hn = H - alpha_newton*step
+            Hn[ Hn < 0 ] = 0
             newobj = np.square(np.linalg.norm(A - np.dot(Hn, Hn.T), 'fro'))
             if newobj - obj > sigma * np.mean(gradH * (Hn-H))
-                while True: #
+                while True: 
                     alpha_newton = alpha_newton * beta
-                    Hn = max(H - alpha_newton * step,0) #
+                    Hn = H - alpha_newton*step
+                    Hn[ Hn < 0 ] = 0
                     newobj = np.square(np.linalg.norm(A - np.dot(Hn,Hn.T)))
-                    if newobj - obj <= sigma * np.mean(gradH * (Hn-H)) #
+                    if newobj - obj <= sigma * np.mean(gradH * (Hn-H)):
                         H = Hn
                         obj = newobj
                         break
