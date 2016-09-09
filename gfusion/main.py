@@ -98,6 +98,13 @@ def _compute_hessian_blkdiag(temp, H, i, projnorm_idx):
     p : (1, n) 
     """
 
+    (n, k) = H.shape
+    subset = #indices of nonzero values in projnorm_idx(:, idx)
+    hidx = H(subset, idx) #
+    eye0 = np.dot(np.dot(H(:, idx).T, H(:, idx)), eye(n))
+
+    He = 4 * (temp(subset, subset) + np.dot(hidx, hidx.T) + eye0(subset, subset)) #
+
     return {'R':R, 'p':p}
 
 
@@ -148,7 +155,8 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
         gradH = 4*(np.dot(H,np.dot(H.T,H)) - np.dot(A,H))
         projnorm_idx_prev = projnorm_idx
         projnorm_idx = np.logical_or(gradH <= eps, H>eps)
-        projnorm = np.linalg.norm(gradH[projnorm_idx])
+        gradH = np.ma.array(gradH, projnorm_idx)
+        projnorm = np.linalg.norm(gradH)
 
         if (projnorm < tol * initgrad):
             break
@@ -161,21 +169,22 @@ def _compute_symnmf(X, k, Hinit = np.array([]), maxiter = 10000, tol = 1e-4, sig
         temp = np.dot(H,H.T) - A 
 
         for i = range(0,k): 
-            if np.any(element projnorm_idx_prev[:,i] != projnorm_idx[:,i]):
+            if np.any(projnorm_idx_prev[:,i] != projnorm_idx[:,i]):
                 rpdict = _compute_hessian_blkdiag(temp, H, i, projnorm_idx)
-                R[i] = rpdict[R]
-                p[i] = rpdict[p]
+                R = rpdict['R']
+                p = rpdict['p']
 
-            if p[i] > 0:
+            if p > 0:
                 step[:,i] = gradH[:,i]
             else
-                step_temp = solve_minnonzero(R[i].T, gradH[projnorm_idx[:, i], i]) #R[i] issue
-                step_temp = solve_minnonzero(R[i], step_temp) #R[i] issue
+                step_temp = solve_minnonzero(R.T, gradH[projnorm_idx[:, i] = True, i]) #a[a != 0] gradH[:,i] but onlyl nonzero values
+                step_temp = solve_minnonzero(R, step_temp)
                 step_part = np.zeros([n, 1])
-                step_part[projnorm_idx[:, i]] = step_temp #
-                step_part[step_part > -eps and H[:, i] <= eps] = 0 #
+                #if projnorm_idx[j,i] is false step_part[j]=0. else take next value from step_temp
+                step_part[projnorm_idx[:, i]] = step_temp
+                step_part[step_part > -eps and H[:, i] <= eps] = 0 #if conditions are true, replace with 0
                 if sum(gradH[:, i] .* step_part) / np.linalg.norm[gradH[:, i]] / np.linalg.norm(step_part) <= eps #
-                    p[i] = 1
+                    p = 1
                     step[:, i] = gradH[:, i]
                 else
                     step[:, i] = step_part
